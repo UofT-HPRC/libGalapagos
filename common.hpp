@@ -1,8 +1,14 @@
 #ifndef __GALAPAGOS_COMMON_HPP__   // if x.h hasn't been included yet...
 #define __GALAPAGOS_COMMON_HPP__
 
+#include <mutex>
+#include <thread>
+#include <condition_variable>
+
+#if LOG_LEVEL > 0
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
+#endif
 
 namespace galapagos{
 
@@ -19,7 +25,10 @@ namespace galapagos{
 
     class done_clean{
         public:
+#if LOG_LEVEL > 0
             done_clean(bool * _done, std::mutex * _mutex, std::shared_ptr<spdlog::logger> _logger);
+#endif
+            done_clean(bool * _done, std::mutex * _mutex);
 	        _done_struct done_struct;
             bool is_done();
             void wait_for_clean();
@@ -29,8 +38,9 @@ namespace galapagos{
             std::mutex mutex_clean_up;
             bool clean_status;
             std::condition_variable cv_clean_up;
+#if LOG_LEVEL > 0
             std::shared_ptr<spdlog::logger> logger;
-
+#endif
     };
 
 

@@ -22,9 +22,14 @@
 
 #include "common.hpp"
 #include "galapagos_packet.h"
+
+
+#if LOG_LEVEL > 0
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/fmt/bin_to_hex.h"
+#endif
+
 
 #define JUMBO_FRAME
 
@@ -56,9 +61,12 @@ namespace galapagos{
     template <class T>
     class interface{
         private:
+            void prepare(std::string _name);
             std::mutex  mutex;
             std::condition_variable cv;
+#if LOG_LEVEL > 0
             std::shared_ptr<spdlog::logger> logger;
+#endif
             std::list <galapagos::buffer> packets;
 
             //needed for size
@@ -78,11 +86,14 @@ namespace galapagos{
             short read_id;
             short read_dest;
             std::vector <size_t> filter_indices;
-	    char filter[MAX_BUFFER];
-	    bool filter_status;
-	    void filter_function(char *packet, int size);
+    	    char filter[MAX_BUFFER];
+	        bool filter_status;
+	        void filter_function(char *packet, int size);
         public:
+#if LOG_LEVEL > 0            
             interface(std::string _name, std::shared_ptr<spdlog::logger> _logger);
+#endif
+            interface(std::string _name);
             std::string name;
             void write(galapagos::stream_packet <T> gps);
             galapagos::stream_packet<T> read();
@@ -90,25 +101,25 @@ namespace galapagos{
             size_t size();
             void packet_write(char * data, int size, short dest, short id);
             char * packet_read(size_t * size, short * dest, short * id);
-	    void set_filter(size_t pos, char byte);
-	    short get_head_dest();
+	        void set_filter(size_t pos, char byte);
+	        short get_head_dest();
 
 	    //used to splice into another list
     	    std::mutex * get_mutex();
             std::list <galapagos::buffer> * get_packets();
-	    std::condition_variable * get_cv();
-	    void splice(galapagos::interface<T> * _interface);
+	        std::condition_variable * get_cv();
+	        void splice(galapagos::interface<T> * _interface);
 
 	    //used when writing to network socket
-	    std::list<buffer>::iterator get_unsafe_head_buffer();
-	    void delete_unsafe_head_buffer();
-	    std::list<buffer> * get_unsafe_list();
+	        std::list<buffer>::iterator get_unsafe_head_buffer();
+	        void delete_unsafe_head_buffer();
+	        std::list<buffer> * get_unsafe_list();
 
      };
 
 }
 
-
+#if LOG_LEVEL > 0
 /**Constructor for galapagos::interface
  @tparam T the type of data used within each galapagos packet (default ap_uint<64>)
  @param[in] name of stream, used for logging purposes
@@ -119,16 +130,35 @@ galapagos::interface<T>::interface(
                     std::string _name,
                     std::shared_ptr<spdlog::logger> _logger
         ){
-    name = _name;
     logger = _logger;
     logger->info("Making Galapagos Interface:{0}", name);
+    prepare(_name);
+}
+
+#endif
+
+template <class T>
+galapagos::interface<T>::interface(
+                    std::string _name
+        ){
+    prepare(_name);
+}
+
+
+template <class T>
+void galapagos::interface<T>::prepare(
+                    std::string _name
+        ){
+    name = _name;
     read_in_prog_addr = 0;
     write_in_prog_addr = 0;
     curr_read_it = packets.end();
     filter_status = false;
+
+
+
 }
-
-
+                    
 template <class T>
 short galapagos::interface<T>::get_head_dest(){
 
@@ -155,7 +185,10 @@ galapagos::stream_packet <T> galapagos::interface<T>::read(){
             while (packets.empty()) {
                 cv.wait(lock);
             }
+            
+#if LOG_LEVEL > 0            
             logger->debug("New Flit Read:{0}", name);
+#endif
             curr_read_it = packets.begin();
 	        read_in_prog_addr = sizeof(T);
         }
@@ -184,14 +217,18 @@ galapagos::stream_packet <T> galapagos::interface<T>::read(){
         gps.last = 1;
         read_in_prog_addr = 0;
         packets.erase(curr_read_it);
+#if LOG_LEVEL > 0
         logger->debug("Interface:{0} read last flit");
+#endif
         curr_read_it = packets.end();
     }
     else{
         gps.last = 0;
     }
 
+#if LOG_LEVEL > 0
     logger->debug("Interface:{0} read data:{1:x}, dest:{2:x}, last:{3:d}, at address:{4:d}, size of packet:{5:d}", name, gps.data, gps.dest, gps.last, read_in_prog_addr, curr_read_it->size);
+#endif
 
     return gps;
 }
@@ -213,9 +250,11 @@ void galapagos::interface<T>::filter_function(char *packet, int size){
 	        break;
         }
         if(pass){
-	    logger->info("FILTER********************");
-            logger->info("{0}:packet:{1:n}", name, spdlog::to_hex(packet, packet+size));
-	}
+#if LOG_LEVEL > 0
+        logger->info("FILTER********************");
+        logger->info("{0}:packet:{1:n}", name, spdlog::to_hex(packet, packet+size));
+#endif
+	    }
     }
 }
 
@@ -229,16 +268,16 @@ void galapagos::interface<T>::write(galapagos::stream_packet <T> gps){
     //if not in progress get a new available buffer from end of list
     if(!write_in_prog_addr)
     {
+
+#if LOG_LEVEL > 0
         logger->debug("New Flit Write:{0}", name);
+#endif
         std::lock_guard<std::mutex> guard(mutex);
         curr_write.dest = gps.dest;
         curr_write.id = gps.id;
     	write_in_prog_addr = sizeof(T);
 
     }
-    //else{
-    //    logger->debug("In Prog Flit Write:{0}", name);
-    //}
 
 
     //once buffer available write flit to buffer and update address
@@ -248,41 +287,38 @@ void galapagos::interface<T>::write(galapagos::stream_packet <T> gps){
         std::lock_guard<std::mutex> guard(write_in_prog_mutex);
     	write_in_prog_addr += sizeof(T);
     }
-    //logger->debug("Interface:{0} write data:{1:x}, dest{2:x}", name, gps.data, gps.dest);
 
     //last flit, moving to list
     if (gps.last){
 
-	{
+	    {
             std::lock_guard<std::mutex> guard(write_in_prog_mutex);
-	    curr_write.size = write_in_prog_addr - sizeof(T);
+	        curr_write.size = write_in_prog_addr - sizeof(T);
     	    T header;
-    	    // header.range(sizeof(T)*8 - 1,32) = 0; //last = 0
-    	    // header.range(31,24) = curr_write.dest;
-    	    // header.range(23,16) = curr_write.id;
-    	    // //header.range(15,0) = curr_write.size;
-    	    // header.range(15,0) = curr_write.size/sizeof(T);
             header = galapagos::range(sizeof(T)*8 - 1, 32, 0, 0); //last = 0
     	    header = galapagos::range(31, 24, header, curr_write.dest);
             header = galapagos::range(23, 16, header, curr_write.id);
             header = galapagos::range(15, 0, header, curr_write.size/sizeof(T));
             memcpy((char *)curr_write.data, (char *)&header, sizeof(T));
-	}
+	    }
         {
             std::lock_guard<std::mutex> guard(mutex);
             write_in_prog_addr = 0;
             packets.push_back(std::move(curr_write));
-	    filter_function(curr_write.data, curr_write.size);
+	        filter_function(curr_write.data, curr_write.size);
             cv.notify_one();
         }
         //once buffer pushed and available for consumption
+#if LOG_LEVEL > 0
         logger->debug("Interface:{0} write last flit, adding to list, with dest:{1:x}, with size:{2:d}, packets size:{3:d}", name, curr_write.dest, curr_write.size, size());
         logger->flush();
+#endif
     }
     else{
+#if LOG_LEVEL > 0
         logger->debug("Interface:{0} write flit data:{1:x}", name, gps.data);
         logger->flush();
-
+#endif
 
     }
 
@@ -337,7 +373,9 @@ size_t galapagos::interface<T>::size(){
 template <class T>
 void galapagos::interface<T>::packet_write(char * data, int size, short dest, short id){
 
+#if LOG_LEVEL > 0
     logger->debug("Start Stream {0} batch_write (CPU only)", name);
+#endif
     //size must be divisible by 8
 //    assert(size % 8 == 0);
 
@@ -368,7 +406,9 @@ void galapagos::interface<T>::packet_write(char * data, int size, short dest, sh
     cv.notify_one();
 
     filter_function(data, size);
+#if LOG_LEVEL > 0
     logger->debug("Stream {0} batch_write (CPU only) of {1:d} bytes, size of packets is{2:d}", name, size*sizeof(T), packets.size());
+#endif
 }
 
 /**Executes a packet read, this function is not portable between CPU and FPGA. Please be careful to rewrite CPU functions to use an individual flit write when porting to HLS
@@ -389,9 +429,11 @@ char * galapagos::interface<T>::packet_read(size_t * _size, short * _dest, short
             while (packets.empty()) {
                 cv.wait(lock);
             }
+#if LOG_LEVEL > 0
             logger->debug("New Stream Read:{0}", name);
+#endif
             curr_read_it = packets.begin();
-	    read_in_prog_addr = sizeof(T);
+	        read_in_prog_addr = sizeof(T);
         }
     }
 
@@ -467,8 +509,9 @@ std::condition_variable * galapagos::interface<T>::get_cv(){
 template <class T>
 void galapagos::interface<T>::splice(galapagos::interface<T> * _interface){
 
-
+#if LOG_LEVEL > 0
     logger->debug("Start Spliced from {0} to {1}", _interface->name, name);
+#endif
     {
         std::unique_lock<std::mutex> _lock(*(_interface->get_mutex()));
     	while (_interface->get_packets()->empty()) {
@@ -486,8 +529,9 @@ void galapagos::interface<T>::splice(galapagos::interface<T> * _interface){
 
     _it = packets.end();
     _it--;
+#if LOG_LEVEL > 0
     logger->debug("Spliced from {0} to {1} of size {2:d}", _interface->name, name, _it->size);
-
+#endif
 }
 
 typedef galapagos::interface <ap_uint<PACKET_DATA_LENGTH> > galapagos_interface;

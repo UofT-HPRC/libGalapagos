@@ -33,7 +33,9 @@ namespace galapagos{
     template<class T>
     class local_router{
         private:
+#if LOG_LEVEL > 0            
             std::shared_ptr<spdlog::logger> logger;
+#endif
     	    std::vector < std::string > kern_info_table;  //!< Stores table indexed by dest, to the node addresses
             std::string my_address; //!< my node address
             std::vector <galapagos::interface<T> * > ext_interfaces;
@@ -53,9 +55,19 @@ namespace galapagos{
 
 	        std::vector <galapagos::interface <T> *  >  s_axis_ptr; //<! array storing pointers to the input ports of the router
             std::vector <galapagos::interface <T> *  >  m_axis_ptr; //<! array storing pointers to the output ports of the router
+            
+            void prepare(std::vector <std::string>  _kern_info_table,
+                        std::string _my_address,
+                        galapagos::done_clean * _dc,
+                        std::mutex * _mutex_packets_in_flight,
+                        int * _packets_in_flight
+                        );
+
+
 
 
         public:
+#if LOG_LEVEL > 0
             local_router(std::vector <std::string>  _kern_info_table,
                         std::string _my_address,
                         galapagos::done_clean * _dc,
@@ -63,6 +75,14 @@ namespace galapagos{
                         int * _packets_in_flight,
                         std::shared_ptr<spdlog::logger> _logger
                         );
+#endif
+            local_router(std::vector <std::string>  _kern_info_table,
+                        std::string _my_address,
+                        galapagos::done_clean * _dc,
+                        std::mutex * _mutex_packets_in_flight,
+                        int * _packets_in_flight
+                        );
+
 
             void route(); //!< routing function, can be overridden for different routers
             void add_interface_pair(interface <T> * _s_axis, interface <T> * _m_axis); //!< adds a pair of axis interfaces to the router
@@ -75,6 +95,7 @@ namespace galapagos{
 
 }
 
+#if LOG_LEVEL>0
 /**Local Router constructor
 @tparam T the type of data used within each galapagos packet (default ap_uint<64>)
 @param[in] _kern_info_table table storing mapping of kernel dests to node addresses
@@ -94,8 +115,36 @@ galapagos::local_router<T>::local_router(std::vector <std::string>  _kern_info_t
                                     std::shared_ptr<spdlog::logger> _logger
                                     )
 {
-    dc = _dc;
     logger = _logger;
+    prepare(_kern_info_table, _my_address, _dc, _mutex_packets_in_flight, _packets_in_flight);
+    logger->info("Created Router Node with Local Address:{0}, {1:d} local nodes", my_address, num_local);
+
+}
+#endif
+
+template <class T>
+galapagos::local_router<T>::local_router(std::vector <std::string>  _kern_info_table,
+                                    std::string _my_address,
+                                    galapagos::done_clean * _dc,
+                                    std::mutex * _mutex_packets_in_flight,
+                                    int * _packets_in_flight
+                                    )
+{
+
+    prepare(_kern_info_table, _my_address, _dc, _mutex_packets_in_flight, _packets_in_flight);
+
+
+}
+
+template <class T>
+void galapagos::local_router<T>::prepare(std::vector <std::string>  _kern_info_table,
+                                    std::string _my_address,
+                                    galapagos::done_clean * _dc,
+                                    std::mutex * _mutex_packets_in_flight,
+                                    int * _packets_in_flight
+                                    )
+{
+    dc = _dc;
 
     in_flight_struct.mutex_packets_in_flight = _mutex_packets_in_flight;
     in_flight_struct.packets_in_flight = _packets_in_flight;
@@ -114,10 +163,9 @@ galapagos::local_router<T>::local_router(std::vector <std::string>  _kern_info_t
         }
     }
 
-    logger->info("Created Router Node with Local Address:{0}, {1:d} local nodes", my_address, num_local);
+
 
 }
-
 
 /**Adds a pair of streaming interfaces to the router
 @tparam T the type of data used within each galapagos packet (default ap_uint<64>)
@@ -140,7 +188,9 @@ void galapagos::local_router<T>::add_interface_pair(galapagos::interface <T> * _
 */
 template <class T>
 void galapagos::local_router<T>::start(){
+#if LOG_LEVEL > 0
     logger->info("Starting Router Node with Local Address:{0}", my_address);
+#endif
     t=std::make_unique<std::thread>(&galapagos::local_router<T>::route, this);
     t->detach();
 
@@ -154,7 +204,9 @@ Round robins through the m_axis (the outputs of all kernels and external drivers
 template <class T>
 void galapagos::local_router<T>::route(){
 
+#if LOG_LEVEL > 0
     logger->debug("in routing function, circling through {0:d} kernels", m_axis_ptr.size());
+#endif
 
 
     do{
@@ -162,18 +214,24 @@ void galapagos::local_router<T>::route(){
             galapagos::interface <T> * _m_axis = m_axis_ptr[i];
             if(!_m_axis->empty()){
                 short head_dest = _m_axis->get_head_dest();
+#if LOG_LEVEL > 0
                 logger->debug("Node Routing Packet with dest:{0:x}", head_dest);
                 logger->debug("Node Routing to net address:{0}, my_address is {1}", kern_info_table[head_dest], my_address);
+#endif
 
                 if (kern_info_table[head_dest] == my_address)
                 {
+#if LOG_LEVEL > 0
                     logger->debug("Node Routing Locally to index:{0:d}", dest_to_kern_ind[head_dest]);
+#endif
 		            s_axis_ptr[dest_to_kern_ind[head_dest]]->splice(_m_axis);
                 }//if (kern_info_table[head_dest] == my_address)
                 else
                 {//currently only external routing is to network
+#if LOG_LEVEL > 0
 		            logger->debug("Node routing to network address {0}", kern_info_table[head_dest]);
                     logger->flush();
+#endif
 		            std::lock_guard <std::mutex> guard(*in_flight_struct.mutex_packets_in_flight);
 		            s_axis_ptr[num_local + NETWORK_EXT_INDEX]->splice(_m_axis);
                     (*(in_flight_struct.packets_in_flight))++;
@@ -201,7 +259,9 @@ unsigned int galapagos::local_router<T>::num_packets(){
         for(unsigned int i=0; i<s_axis_ptr.size(); i++){
             int local_size = s_axis_ptr[i]->size();
             if(local_size>0 && !found_s){
-                logger->debug("S_axis_{0:d} has {1:d} packets", i, local_size);
+#if LOG_LEVEL > 0
+                logger->debug("s_axis_{0:d} has {1:d} packets", i, local_size);
+#endif
                 found_s = true;
             }
             num+= local_size;
@@ -211,7 +271,9 @@ unsigned int galapagos::local_router<T>::num_packets(){
         for(unsigned int i=0; i<m_axis_ptr.size(); i++){
             int local_size = m_axis_ptr[i]->size();
             if(local_size>0 && !found_m){
+#if LOG_LEVEL > 0
                 logger->debug("M_axis_{0:d} has {1:d} packets", i, local_size);
+#endif
                 found_m = true;
             }
             num+= local_size;
@@ -228,7 +290,9 @@ unsigned int galapagos::local_router<T>::num_packets(){
 template <class T>
 galapagos::local_router<T>::~local_router(){
 
+#if LOG_LEVEL > 0
     logger->info("In local router destructor");
+#endif
 
 }
 

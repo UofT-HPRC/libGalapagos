@@ -20,10 +20,11 @@
 #include "common.hpp"
 #include "galapagos_interface.hpp"
 
+#if LOG_LEVEL > 0
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/fmt/bin_to_hex.h"
-
+#endif
 
 
 #include "galapagos_external_driver.hpp"
@@ -40,11 +41,18 @@ namespace galapagos{
         template<class T>
         class udp: public galapagos::external_driver<T>{
             public:
+#if LOG_LEVEL > 0
                 udp(
                     short port, 
                     std::vector <std::string> kern_info_table, 
                     std::string  my_address, 
                     std::shared_ptr <spdlog::logger> _logger
+                    );
+#endif
+                udp(
+                    short port, 
+                    std::vector <std::string> kern_info_table, 
+                    std::string  my_address
                     );
                 ~udp(){}
 		//virtual functions of external_driver
@@ -53,6 +61,11 @@ namespace galapagos{
 		        void start(); 
 	    	    void init(galapagos::done_clean *, int * _packets_in_flight, std::mutex * _mutex_packets_in_flight);
 	        private:
+                prepare(
+                    short port, 
+                    std::vector <std::string> kern_info_table, 
+                    std::string  my_address
+                    );
                 std::unique_ptr<boost::asio::ip::udp::socket> write_socket;
                 std::unique_ptr<boost::asio::ip::udp::socket> read_socket;
 		        interface <T> s_axis;
@@ -72,6 +85,7 @@ namespace galapagos{
     }//net namespace
 }//galapagos namespace
 
+#if LOG_LEVEL > 0
 template<class T>
 galapagos::net::udp<T>::udp(
             short _port, 
@@ -86,32 +100,65 @@ galapagos::net::udp<T>::udp(
 
 {
 
+    prepare(_port, _kern_info_table, _my_address);
+
+}
+
+#endif
+
+
+template<class T>
+galapagos::net::udp<T>::udp(
+            short _port, 
+            std::vector <std::string>  _kern_info_table, 
+            std::string   _my_address
+            )
+    	:
+	galapagos::external_driver<T>(),
+	s_axis(std::string("udp_s_axis")),
+	m_axis(std::string("udp_m_axis"))
+
+{
+
+    prepare(_port, _kern_info_table, _my_address);
+
+}
+template<class T>
+galapagos::net::udp<T>::prepare(
+            short _port, 
+            std::vector <std::string>  _kern_info_table, 
+            std::string   _my_address 
+            )
+{
 
     port = _port;
     for(int i=0; i< _kern_info_table.size(); i++)
         kern_info_table.push_back(_kern_info_table[i]);
     my_address = _my_address;
+#if LOG_LEVEL > 0
     this->logger->info("created udp");
     this->logger->debug("udp constructor with {0:d}", kern_info_table.size());
     this->logger->flush();
+#endif
     io_context.run();
+    
     boost::asio::ip::udp::endpoint myEndpoint;
     boost::asio::ip::address_v4 myIP;
     boost::system::error_code myError;
     myIP.from_string(my_address.c_str(), myError); 
     myEndpoint.address(myIP);
     myEndpoint.port(port);
+#if LOG_LEVEL > 0    
     this->logger->info("About to read at port {0:d}", port);
     this->logger->info("About to bind to address{0}", my_address);
-    //read_socket = std::make_unique< boost::asio::ip::udp::socket> (io_context, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port));
+#endif
     boost::asio::socket_base::reuse_address option(true);
     read_socket = std::make_unique< boost::asio::ip::udp::socket> (io_context, boost::asio::ip::udp::v4());
     read_socket->set_option(option);
-    read_socket->bind(boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(my_address.c_str()), 640));
-    //read_socket = std::make_unique< boost::asio::ip::udp::socket> (io_context);//, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port));
-    //read_socket->set_option(boost::asio::socket_base::reuse_address(true));
-    //read_socket = std::make_unique< boost::asio::ip::udp::socket> (io_context, myEndpoint);
+    read_socket->bind(boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(my_address.c_str()), port));
+#if LOG_LEVEL > 0
     this->logger->info("Created listen socket");
+#endif
 }
 
 template<class T>
@@ -134,8 +181,10 @@ void galapagos::net::udp<T>::wait_for_end()
     write_dc->wait_for_clean();
     read_dc->wait_for_clean();
     this->dc->clean();
+#if LOG_LEVEL > 0
     this->logger->info("clean udp");
     this->logger->flush();
+#endif
 }
 
 
@@ -143,8 +192,10 @@ void galapagos::net::udp<T>::wait_for_end()
 template<class T>
 void galapagos::net::udp<T>::start()
 {
+#if LOG_LEVEL > 0
     this->logger->info("udp started");
     this->logger->flush();
+#endif
     std::thread t_read(&udp<T>::read,this);
     t_read.detach();
     std::thread t_write(&udp<T>::write,this);
@@ -155,7 +206,9 @@ void galapagos::net::udp<T>::start()
 template<class T>
 void galapagos::net::udp<T>::read(){
   
+#if LOG_LEVEL > 0
     this->logger->debug("udp read function started");
+#endif
     do{
         boost::asio::ip::udp::endpoint sender_endpoint;
         char data[(MAX_BUFFER+1)*sizeof(T)];
@@ -167,12 +220,16 @@ void galapagos::net::udp<T>::read(){
                         boost::asio::buffer((char *)data, (MAX_BUFFER+1)*sizeof(T)), sender_endpoint
                         );
         std::string recv_addr = sender_endpoint.address().to_string();
+#if LOG_LEVEL > 0
         this->logger->debug("udp_read from net address {0}", recv_addr);
+#endif
         int dest = (int)header->range(31,24);
         int id = (int)header->range(23,16);
         int size = (int)header->range(15,0);
         
+#if LOG_LEVEL > 0
         this->logger->debug ("udp_read, size is {0:d}, max_size is {1:d}", size, (MAX_BUFFER+1));
+#endif
         m_axis.packet_write(data+sizeof(T), size, dest, id);
 
     }while(!this->dc->is_done());
@@ -187,11 +244,15 @@ template<class T>
 void galapagos::net::udp<T>::write(){
 
 
+#if LOG_LEVEL > 0
     this->logger->debug("udp write function started");
+#endif
     do{
         std::lock_guard<std::mutex> guard0(*this->packets_in_flight.mutex);
         if(!s_axis.empty()){
+#if LOG_LEVEL > 0
             this->logger->debug("about to write to udp socket");
+#endif
             std::lock_guard<std::mutex> guard1(*s_axis.get_mutex());
             boost::asio::ip::udp::endpoint myEndpoint;
             boost::asio::ip::address_v4 targetIP;
@@ -208,14 +269,10 @@ void galapagos::net::udp<T>::write(){
             socket.close();
 
             
-            //boost::asio::ip::udp::socket s(io_context, myEndpoint);
-            //s.open(boost::asio::ip::udp::v4());
-            //s.bind(myEndpoint, myError);        
-            //int sent = s.send(boost::asio::buffer(s_axis.get_unsafe_head_buffer()->data, s_axis.get_unsafe_head_buffer()->size + sizeof(T)), boost::asio::socket_base::debug(true), myError);
-            //int sent = s.send_to(boost::asio::buffer(s_axis.get_unsafe_head_buffer()->data, s_axis.get_unsafe_head_buffer()->size + sizeof(T)), myEndpoint);
-            //s.close();
+#if LOG_LEVEL > 0
             this->logger->debug("udp sent{0:d} to ip_addr {1}", sent, kern_info_table[s_axis.get_unsafe_head_buffer()->dest].c_str());
             this->logger->debug("wrote {0:d} to udp socket at dest {1:d}", s_axis.get_unsafe_head_buffer()->size, s_axis.get_unsafe_head_buffer()->dest);
+#endif
             s_axis.delete_unsafe_head_buffer();	
             *this->packets_in_flight.num = *this->packets_in_flight.num - 1;
         }
