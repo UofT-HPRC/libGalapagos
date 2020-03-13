@@ -3,11 +3,12 @@
 # CREATE DATE     : April 20, 2019
 #===============================
 
+XILINX_INCLUDE=../xil_include
 
 DEBUG_FLAGS = -g -DLOG_LEVEL=2
 PRODUCTION_FLAGS = -O3 -DLOG_LEVEL=0
 BOOST_LDFLAGS=-lboost_thread -lboost_system -lpthread -lboost_log -lboost_log_setup -lboost_program_options
-FLAGS=-DCPU  -std=c++17 -isystem $(XILINX_VIVADO)/include -I../util/spdlog/include 
+FLAGS=-DCPU  -std=c++17 -isystem $(XILINX_INCLUDE) -I../util/spdlog/include 
 
 release: CXXFLAGS = $(FLAGS)  ${PRODUCTION_FLAGS}
 release: hello_world.exe
