@@ -39,6 +39,7 @@ namespace galapagos{
 
 typedef galapagos::stream_packet <ap_uint<PACKET_DATA_LENGTH> > galapagos_packet;
 
+
 #define BYTESPERCYCLE 8
 #define ID_LENGTH 8
 #define DEST_LENGTH 8
@@ -74,6 +75,8 @@ namespace galapagos{
 }
 
 typedef galapagos::stream_packet<ap_uint<PACKET_DATA_LENGTH> >  galapagos_packet;
+
+typedef hls::stream<galapagos_packet> galapagos_interface;
 
 inline ap_uint<PACKET_DATA_LENGTH> get_header(ap_uint<PACKET_DEST_LENGTH> _id, ap_uint<PACKET_DEST_LENGTH> _dest, ap_uint<PACKET_USER_LENGTH> _size){
 #pragma HLS INLINE
