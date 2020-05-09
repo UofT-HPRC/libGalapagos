@@ -19,7 +19,7 @@ debug: test.exe
 all: release
 
 lib:
-	g++ $(FLAGS) -c common.cpp
+	g++ $(FLAGS) -DLOG_LEVEL=2 -c common.cpp
 	ar -cr $(GALAPAGOS_PATH)/middleware/libGalapagos/libGalapagos.a $(GALAPAGOS_PATH)/middleware/libGalapagos/*.o
 
 test.exe: test.cpp *.hpp unit_tests/*

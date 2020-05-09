@@ -85,6 +85,7 @@ namespace galapagos{
     }//net namespace
 }//galapagos namespace
 
+#if LOG_LEVEL > 0
 template<class T>
 galapagos::net::tcp<T>::tcp(
             short _port, 
@@ -102,11 +103,30 @@ galapagos::net::tcp<T>::tcp(
     for(unsigned int i=0; i< _kern_info_table.size(); i++)
         kern_info_table.push_back(_kern_info_table[i]);
     my_address = _my_address;
-#if LOG_LEVEL > 0
+
     this->logger->info("created tcp");
     this->logger->debug("tcp constructor with {0:d}", kern_info_table.size());
     this->logger->flush();
+    io_context.run();
+}
 #endif
+
+template<class T>
+galapagos::net::tcp<T>::tcp(
+            short _port, 
+            std::vector <std::string>  _kern_info_table, 
+            std::string   _my_address
+            )
+    	:
+	galapagos::external_driver<T>(),
+	s_axis(std::string("tcp_s_axis"))
+
+{
+
+    port = _port;
+    for(unsigned int i=0; i< _kern_info_table.size(); i++)
+        kern_info_table.push_back(_kern_info_table[i]);
+    my_address = _my_address;
     io_context.run();
 }
 

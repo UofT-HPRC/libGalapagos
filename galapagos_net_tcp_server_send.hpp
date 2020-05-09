@@ -51,7 +51,7 @@ namespace galapagos{
 			        interface <T> * _s_axis
 	                );
             
-            prepare(short _port, boost::asio::io_context * _io_context,
+            void prepare(short _port, boost::asio::io_context * _io_context,
 	                tcp_session_container <T> * _sessions,
                     done_clean * _dc,
 			        interface <T> * _s_axis
@@ -80,7 +80,7 @@ namespace galapagos{
 using namespace galapagos::net;
 
 template <class T>
-tcp_server_send<T>::prepare(short _port, 
+void tcp_server_send<T>::prepare(short _port, 
                         boost::asio::io_context * _io_context, 
                         tcp_session_container <T> * _sessions,
                         done_clean * _dc,
@@ -131,8 +131,8 @@ tcp_server_send<T>::tcp_server_send(short _port,
                         boost::asio::io_context * _io_context, 
                         tcp_session_container <T> * _sessions,
                         done_clean * _dc,
-			            interface <T> * _s_axis,
-			            std::shared_ptr <spdlog::logger> _logger
+			            interface <T> * _s_axis
+			            // std::shared_ptr <spdlog::logger> _logger
         
 )
 {

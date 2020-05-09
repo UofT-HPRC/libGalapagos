@@ -58,7 +58,7 @@ namespace galapagos{
                     std::unique_ptr <galapagos::done_clean> read_dc;
                     std::unique_ptr <galapagos::done_clean> write_dc;
                 private:
-                    prepare(boost::asio::ip::tcp::socket _socket, 
+                    void prepare(boost::asio::ip::tcp::socket* _socket, 
                             boost::asio::io_context * _io_context, 
                             std::mutex * _mutex_packets_in_flight,
                             int * _packets_in_flight,
@@ -121,7 +121,7 @@ namespace galapagos{
                     bool barrier();
                     interface<T> * get_s_axis(std::string ip_addr);
                 private:
-                    prepare(
+                    void prepare(
                             std::vector <std::string> & _kernel_info_table,
                             std::string  & my_address,
                             done_clean * _dc,
@@ -179,7 +179,7 @@ tcp_session<T>::tcp_session(boost::asio::ip::tcp::socket  _socket,
 
 
 
-    prepare(_socket, _io_context, _mutex_packets_in_flight, _packets_in_flight, _id, _dc);
+    prepare(&_socket, _io_context, _mutex_packets_in_flight, _packets_in_flight, _id, _dc);
     logger = _logger;
     logger->info("Created tcp_session:{0:d}", my_id); 
     read_dc = std::make_unique<galapagos::done_clean>(dc->done_struct.done, dc->done_struct.mutex, logger);
@@ -199,7 +199,7 @@ tcp_session<T>::tcp_session(boost::asio::ip::tcp::socket  _socket,
     s_axis(std::string("tcp_session_") + std::to_string(_id) + std::string("_s_axis")),
     m_axis(std::string("tcp_session_") + std::to_string(_id) + std::string("_m_axis"))
 {
-    prepare(_socket, _io_context, _mutex_packets_in_flight, _packets_in_flight, _id, _dc);
+    prepare(&_socket, _io_context, _mutex_packets_in_flight, _packets_in_flight, _id, _dc);
     read_dc = std::make_unique<galapagos::done_clean>(dc->done_struct.done, dc->done_struct.mutex);
     write_dc = std::make_unique<galapagos::done_clean>(dc->done_struct.done, dc->done_struct.mutex);
 
@@ -207,7 +207,7 @@ tcp_session<T>::tcp_session(boost::asio::ip::tcp::socket  _socket,
 }
     
     template <class T>
-tcp_session<T>::prepare(boost::asio::ip::tcp::socket  _socket, 
+void tcp_session<T>::prepare(boost::asio::ip::tcp::socket*  _socket, 
         boost::asio::io_context * _io_context,
         std::mutex * _mutex_packets_in_flight,
         int * _packets_in_flight,
@@ -249,7 +249,9 @@ void tcp_session<T>::start()
     std::thread t_write(&tcp_session<T>::do_write, this);
     t_read.detach();
     t_write.detach();
-    logger->info("Started tcp_session:{0:d}", my_id); 
+    #if LOG_LEVEL > 0
+    logger->info("Started tcp_session:{0:d}", my_id);
+    #endif
 }
 
 
@@ -355,7 +357,7 @@ void tcp_session<T>::do_write()
 
     write_dc->clean();
 
-
+}
 
 #if LOG_LEVEL > 0
 
@@ -405,7 +407,7 @@ tcp_session_container<T>::tcp_session_container(
 }
 
 template <class T>
-tcp_session_container<T>::prepare(
+void tcp_session_container<T>::prepare(
         std::vector <std::string> & _kernel_info_table,
         std::string & my_address,
         galapagos::done_clean * _dc,
