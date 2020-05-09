@@ -270,7 +270,7 @@ void galapagos::interface<T>::write(galapagos::stream_packet <T> gps){
     {
 
 #if LOG_LEVEL > 0
-        logger->debug("New Flit Write:{0}", name);
+        logger->info("New Flit Write:{0}", name);
 #endif
         std::lock_guard<std::mutex> guard(mutex);
         curr_write.dest = gps.dest;
@@ -310,13 +310,13 @@ void galapagos::interface<T>::write(galapagos::stream_packet <T> gps){
         }
         //once buffer pushed and available for consumption
 #if LOG_LEVEL > 0
-        logger->debug("Interface:{0} write last flit, adding to list, with dest:{1:x}, with size:{2:d}, packets size:{3:d}", name, curr_write.dest, curr_write.size, size());
+        logger->info("Interface:{0} write last flit, adding to list, with dest:{1:x}, with size:{2:d}, packets size:{3:d}", name, curr_write.dest, curr_write.size, size());
         logger->flush();
 #endif
     }
     else{
 #if LOG_LEVEL > 0
-        logger->debug("Interface:{0} write flit data:{1:x}", name, gps.data);
+        logger->info("Interface:{0} write flit data:{1:x}", name, gps.data);
         logger->flush();
 #endif
 
