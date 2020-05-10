@@ -45,6 +45,12 @@ namespace galapagos{
 #if LOG_LEVEL > 0
 	        	std::shared_ptr <spdlog::logger> logger;
 #endif
+                void prepare(
+                    boost::asio::io_context *io_context,
+                    std::string my_address, 
+                    short port,  
+                    tcp_session_container<T> * _sessions
+                );
                 void accept();
                 boost::asio::ip::tcp::acceptor acceptor_;
                 tcp_session_container <T> * sessions;
@@ -77,8 +83,7 @@ template<class T>
 tcp_accept_server<T>::tcp_accept_server(boost::asio::io_context *io_context,
 						                std::string my_address, 
                                         short port,  
-                                        tcp_session_container<T> * _sessions,
-	        	    	      			std::shared_ptr <spdlog::logger> _logger
+                                        tcp_session_container<T> * _sessions
                                                 )
     : acceptor_(*io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port))
 {
@@ -87,7 +92,7 @@ tcp_accept_server<T>::tcp_accept_server(boost::asio::io_context *io_context,
 }
 
 template<class T>
-tcp_accept_server<T>::prepare(boost::asio::io_context *io_context,
+void tcp_accept_server<T>::prepare(boost::asio::io_context *io_context,
 						      std::string my_address, 
                               short port,  
                               tcp_session_container<T> * _sessions

@@ -18,9 +18,17 @@ debug: test.exe
 
 all: release
 
+DEBUG ?= 0
+ifeq ($(DEBUG), 0)
+OPT = $(PRODUCTION_FLAGS)
+else
+OPT = $(DEBUG_FLAGS)
+endif
+
 lib:
-	g++ $(FLAGS) -DLOG_LEVEL=2 -c common.cpp
-	ar -cr $(GALAPAGOS_PATH)/middleware/libGalapagos/libGalapagos.a $(GALAPAGOS_PATH)/middleware/libGalapagos/*.o
+	rm *.o
+	g++ $(FLAGS) $(OPT) -c common.cpp
+	ar -cr libGalapagos.a *.o
 
 test.exe: test.cpp *.hpp unit_tests/*
 	$(CXX) $(CXXFLAGS) -o test.exe  test.cpp $(BOOST_LDFLAGS)
@@ -31,6 +39,7 @@ test.exe: test.cpp *.hpp unit_tests/*
 
 clean:
 	rm -rf *.o
+	rm -rf *.a
 	rm -rf *.exe
 	rm -rf *.txt
 	rm -rf send/*

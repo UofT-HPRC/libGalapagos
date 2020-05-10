@@ -61,7 +61,7 @@ namespace galapagos{
 		        void start(); 
 	    	    void init(galapagos::done_clean *, int * _packets_in_flight, std::mutex * _mutex_packets_in_flight);
 	        private:
-                prepare(
+                void prepare(
                     short port, 
                     std::vector <std::string> kern_info_table, 
                     std::string  my_address
@@ -124,7 +124,7 @@ galapagos::net::udp<T>::udp(
 
 }
 template<class T>
-galapagos::net::udp<T>::prepare(
+void galapagos::net::udp<T>::prepare(
             short _port, 
             std::vector <std::string>  _kern_info_table, 
             std::string   _my_address 
