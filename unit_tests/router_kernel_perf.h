@@ -72,7 +72,7 @@ TEST_CASE( "ROUTER:KERNEL:PERF:1" ) {
     std::chrono::duration<double> diff = end-start;
     std::cout << std::endl << " ......................." << Catch::getResultCapture().getCurrentTestName() << "......................." << std::endl;
     std::cout << "RUNTIME:"  <<  diff.count() << " s" << std::endl;
-    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000*8)) << " Mb/s" << std::endl;
+    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000/8)) << " Mb/s" << std::endl;
 
 }
 
@@ -148,7 +148,7 @@ TEST_CASE( "ROUTER:KERNEL:PERF:2" ) {
     std::chrono::duration<double> diff = end-start;
     std::cout << std::endl << " ......................." << Catch::getResultCapture().getCurrentTestName() << "......................." << std::endl;
     std::cout << "RUNTIME:"  <<  diff.count() << " s" << std::endl;
-    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000*8)) << " Mb/s" << std::endl;
+    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000/8)) << " Mb/s" << std::endl;
 
 }
 
@@ -223,7 +223,7 @@ TEST_CASE( "ROUTER:KERNEL:PERF:3" ) {
     std::chrono::duration<double> diff = end-start;
     std::cout << std::endl << " ......................." << Catch::getResultCapture().getCurrentTestName() << "......................." << std::endl;
     std::cout << "RUNTIME:"  <<  diff.count() << " s" << std::endl;
-    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000*8)) << " Mb/s" << std::endl;
+    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000/8)) << " Mb/s" << std::endl;
 
 }
 
@@ -299,7 +299,7 @@ TEST_CASE( "ROUTER:KERNEL:PERF:4" ) {
     std::chrono::duration<double> diff = end-start;
     std::cout << std::endl << " ......................." << Catch::getResultCapture().getCurrentTestName() << "......................." << std::endl;
     std::cout << "RUNTIME:"  <<  diff.count() << " s" << std::endl;
-    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000*8)) << " Mb/s" << std::endl;
+    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000/8)) << " Mb/s" << std::endl;
 
 }
 

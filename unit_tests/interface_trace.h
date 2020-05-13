@@ -26,7 +26,7 @@ TEST_CASE( "INTERFACE:TRACE:PASS:1" ) {
     std::chrono::duration<double> diff = end-start;
     std::cout << std::endl << " ......................." << Catch::getResultCapture().getCurrentTestName() << "......................." << std::endl;
     std::cout << "RUNTIME:"  <<  diff.count() << " s" << std::endl;
-    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000*8)) << " Mb/s" << std::endl;
+    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000/8)) << " Mb/s" << std::endl;
 }
 
 
@@ -55,7 +55,7 @@ TEST_CASE( "INTERFACE:TRACE:PASS:2" ) {
     std::chrono::duration<double> diff = end-start;
     std::cout << std::endl << " ......................." << Catch::getResultCapture().getCurrentTestName() << "......................." << std::endl;
     std::cout << "RUNTIME:"  <<  diff.count() << " s" << std::endl;
-    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000*8)) << " Mb/s" << std::endl;
+    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000/8)) << " Mb/s" << std::endl;
 }
 
 //Test from packet filter on flit write
@@ -82,7 +82,7 @@ TEST_CASE( "INTERFACE:TRACE:FAIL:1" ) {
     std::chrono::duration<double> diff = end-start;
     std::cout << std::endl << " ......................." << Catch::getResultCapture().getCurrentTestName() << "......................." << std::endl;
     std::cout << "RUNTIME:"  <<  diff.count() << " s" << std::endl;
-    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000*8)) << " Mb/s" << std::endl;
+    std::cout << "TRANSFER_RATE:"  <<  ((MAX_BUFFER*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000/8)) << " Mb/s" << std::endl;
 }
 
 #endif
