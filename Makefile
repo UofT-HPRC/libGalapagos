@@ -20,18 +20,18 @@ all: release
 
 DEBUG ?= 0
 ifeq ($(DEBUG), 0)
-OPT = $(PRODUCTION_FLAGS)
+OPT = $(FLAGS) $(PRODUCTION_FLAGS)
 else
-OPT = $(DEBUG_FLAGS)
+OPT = $(FLAGS) $(DEBUG_FLAGS)
 endif
 
 lib:
 	rm *.o
-	g++ $(FLAGS) $(OPT) -c common.cpp
+	$(CXX) $(OPT) -c common.cpp
 	ar -cr libGalapagos.a *.o
 
-test.exe: test.cpp *.hpp unit_tests/*
-	$(CXX) $(CXXFLAGS) -o test.exe  test.cpp $(BOOST_LDFLAGS)
+test.exe: test.cpp *.hpp unit_tests/* common.cpp
+	$(CXX) $(CXXFLAGS) -o test.exe  test.cpp common.cpp $(BOOST_LDFLAGS)
 	mkdir -p send
 	mkdir -p recv
 	cp test.exe send/ && cp test.exe recv/
