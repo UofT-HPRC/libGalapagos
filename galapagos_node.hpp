@@ -65,6 +65,7 @@ void galapagos::node<T>::prepare(std::vector <std::string>   _kern_info_table, s
     done = false;
     
     num_local = 0;
+    kernels_added = 0;
     for(unsigned int i=0; i<_kern_info_table.size(); i++){
         //if(_kern_info_table[i] == _my_address)
         if(_kern_info_table[i] == _my_address){
@@ -124,10 +125,16 @@ void galapagos::node<T>::add_kernel(short id, void (*func)(short , interface <T>
      kernels[index]->set_func(func);
      my_router.add_interface_pair(kernels[index]->get_s_axis(), kernels[index]->get_m_axis());
      kernels_added++;
+    #if LOG_LEVEL > 0
+        logger->debug("Adding kernel, kernel count is {0:d} out of {1:d}", kernels_added, num_local);
+    #endif
      if(kernels_added == num_local){
-	for(unsigned int i=0; i<ext_drivers.size(); i++){
-	   my_router.add_interface_pair(ext_drivers[i]->get_s_axis(), ext_drivers[i]->get_m_axis());
-	}
+        for(unsigned int i=0; i<ext_drivers.size(); i++){
+            #if LOG_LEVEL > 0
+                logger->debug("Added external interface pair");
+            #endif
+            my_router.add_interface_pair(ext_drivers[i]->get_s_axis(), ext_drivers[i]->get_m_axis());
+        }
      }
 }
 
