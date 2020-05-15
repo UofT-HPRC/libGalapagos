@@ -100,7 +100,10 @@ namespace galapagos{
             bool empty();
             size_t size();
             void packet_write(char * data, int size, short dest, short id);
+            void packet_write_partial(char * data, int size, bool assert_last);
             char * packet_read(size_t * size, short * dest, short * id);
+            void packet_read(char * mem, size_t * size, short * dest, short * id);
+            char * packet_read(size_t * _size);
 	        void set_filter(size_t pos, char byte);
 	        short get_head_dest();
 
@@ -411,6 +414,68 @@ void galapagos::interface<T>::packet_write(char * data, int size, short dest, sh
 #endif
 }
 
+/**Executes a partial packet write (the regular write should be called prior to initialize), this function is not portable between CPU and FPGA. Please be careful to rewrite CPU functions to use an individual flit write when porting to HLS
+@tparam T the type of data used within each galapagos packet (default ap_uint<64>)
+@param[in] data buffer to be written
+@param[in] size size of buffer
+*/
+template <class T>
+void galapagos::interface<T>::packet_write_partial(char * data, int size, bool assert_last){
+
+#if LOG_LEVEL > 0
+    logger->debug("Start Stream {0} batch_write (CPU only)", name);
+#endif
+    //size must be divisible by 8
+//    assert(size % 8 == 0);
+
+    //data must fit in MTU
+    assert((size) <= (MAX_BUFFER));
+
+    
+    //curr_write.size = size;
+    // curr_write.dest = dest;
+    // curr_write.id = id;
+
+    //once buffer available write flit to buffer and update address
+    memcpy((char *)curr_write.data + write_in_prog_addr, data, size*sizeof(T));
+
+    {
+        std::lock_guard<std::mutex> guard(write_in_prog_mutex);
+    	write_in_prog_addr += size * sizeof(T);
+    }
+
+    //last flit, moving to list
+    if (assert_last){
+
+	    {
+            std::lock_guard<std::mutex> guard(write_in_prog_mutex);
+	        curr_write.size = write_in_prog_addr - sizeof(T);
+    	    T header;
+            header = galapagos::range(sizeof(T)*8 - 1, 32, 0, 0); //last = 0
+    	    header = galapagos::range(31, 24, header, curr_write.dest);
+            header = galapagos::range(23, 16, header, curr_write.id);
+            header = galapagos::range(15, 0, header, curr_write.size/sizeof(T));
+            memcpy((char *)curr_write.data, (char *)&header, sizeof(T));
+	    }
+        {
+            std::lock_guard<std::mutex> guard(mutex);
+            write_in_prog_addr = 0;
+            packets.push_back(std::move(curr_write));
+	        filter_function(curr_write.data, curr_write.size);
+            cv.notify_one();
+            #if LOG_LEVEL > 0
+            logger->debug("Stream {0} last partial_batch_write (CPU only) of {1:d} bytes, size of packets is{2:d}", name, size*sizeof(T), packets.size());
+            #endif
+        }
+    }
+
+    #if LOG_LEVEL > 0
+    else{
+        logger->debug("Stream {0} partial_batch_write (CPU only) of {1:d} bytes, size of packets is{2:d}", name, size*sizeof(T), packets.size());
+    }
+    #endif
+}
+
 /**Executes a packet read, this function is not portable between CPU and FPGA. Please be careful to rewrite CPU functions to use an individual flit write when porting to HLS
 @tparam T the type of data used within each galapagos packet (default ap_uint<64>)
 @param[out] _size size of buffer
@@ -437,9 +502,91 @@ char * galapagos::interface<T>::packet_read(size_t * _size, short * _dest, short
         }
     }
 
+    // size_t buff_size = curr_read_it->size - read_in_prog_addr + sizeof(T);
     size_t buff_size = curr_read_it->size;
     *_dest = curr_read_it->dest;
     *_id = curr_read_it->id;
+    *_size = buff_size;
+
+    ret = (char *)malloc(buff_size);
+    memcpy((char *)ret, (char *)curr_read_it->data + read_in_prog_addr, buff_size);
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        read_in_prog_addr = 0;
+        packets.erase(curr_read_it);
+        curr_read_it = packets.end();
+    }
+    return ret;
+}
+
+/**Executes a packet read, this function is not portable between CPU and FPGA. Please be careful to rewrite CPU functions to use an individual flit write when porting to HLS
+@tparam T the type of data used within each galapagos packet (default ap_uint<64>)
+@param[in] mem memory to store read data in. No bounds checking (memory must be large enough to hold data)
+@param[out] _size size of buffer
+@param[out] _dest dest of buffer
+@param[out] _id id of buffer
+@returns buffer pointing to batch of data
+*/
+template <class T>
+void galapagos::interface<T>::packet_read(char * mem, size_t * _size, short * _dest, short * _id){
+
+    char * ret;
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        if(!read_in_prog_addr)
+        {
+            while (packets.empty()) {
+                cv.wait(lock);
+            }
+#if LOG_LEVEL > 0
+            logger->debug("New Stream Read:{0}", name);
+#endif
+            curr_read_it = packets.begin();
+	        read_in_prog_addr = sizeof(T);
+        }
+    }
+
+    size_t buff_size = curr_read_it->size - read_in_prog_addr + sizeof(T);
+    *_dest = curr_read_it->dest;
+    *_id = curr_read_it->id;
+    *_size = buff_size;
+
+    // ret = (char *)malloc(buff_size);
+    memcpy((char *)mem, (char *)curr_read_it->data + read_in_prog_addr, buff_size);
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        read_in_prog_addr = 0;
+        packets.erase(curr_read_it);
+        curr_read_it = packets.end();
+    }
+    // return ret;
+}
+
+/**Executes a packet read, this function is not portable between CPU and FPGA. Please be careful to rewrite CPU functions to use an individual flit write when porting to HLS
+@tparam T the type of data used within each galapagos packet (default ap_uint<64>)
+@param[out] _size size of buffer
+@returns buffer pointing to batch of data
+*/
+template <class T>
+char * galapagos::interface<T>::packet_read(size_t * _size){
+
+    char * ret;
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        if(!read_in_prog_addr)
+        {
+            while (packets.empty()) {
+                cv.wait(lock);
+            }
+#if LOG_LEVEL > 0
+            logger->debug("New Stream Read:{0}", name);
+#endif
+            curr_read_it = packets.begin();
+	        read_in_prog_addr = sizeof(T);
+        }
+    }
+
+    size_t buff_size = curr_read_it->size - read_in_prog_addr + sizeof(T);
     *_size = buff_size;
 
     ret = (char *)malloc(buff_size);
