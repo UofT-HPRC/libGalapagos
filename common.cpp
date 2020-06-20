@@ -29,7 +29,7 @@ galapagos::done_clean::done_clean(
 
 
 bool galapagos::done_clean::is_done(){
-    std::lock_guard<std::mutex> guard(*done_struct.mutex);
+    // std::lock_guard<std::mutex> guard(*done_struct.mutex);
     return *done_struct.done;
 }
 

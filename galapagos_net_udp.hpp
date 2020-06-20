@@ -210,6 +210,7 @@ void galapagos::net::udp<T>::read(){
     this->logger->debug("udp read function started");
 #endif
     do{
+        if(read_socket->available() > 0){
         boost::asio::ip::udp::endpoint sender_endpoint;
         char data[(MAX_BUFFER+1)*sizeof(T)];
         T * header = (T *)data;
@@ -223,15 +224,18 @@ void galapagos::net::udp<T>::read(){
 #if LOG_LEVEL > 0
         this->logger->debug("udp_read from net address {0}", recv_addr);
 #endif
-        int dest = (int)header->range(31,24);
-        int id = (int)header->range(23,16);
-        int size = (int)header->range(15,0);
+        // int dest = (int)header->range(31,24);
+        // int id = (int)header->range(23,16);
+        // int size = (int)header->range(15,0);
+        int dest = galapagos::range(31, 24, *header);
+        int id = galapagos::range(23, 16, *header);
+        int size = galapagos::range(15, 0, *header);
         
 #if LOG_LEVEL > 0
         this->logger->debug ("udp_read, size is {0:d}, max_size is {1:d}", size, (MAX_BUFFER+1));
 #endif
         m_axis.packet_write(data+sizeof(T), size, dest, id);
-
+        }
     }while(!this->dc->is_done());
     
     read_dc->clean();
@@ -297,9 +301,13 @@ void galapagos::net::udp<T>::init(
     this->packets_in_flight.num = _packets_in_flight;
     this->packets_in_flight.mutex = _mutex_packets_in_flight;
     
-    
+    #if LOG_LEVEL > 0
     read_dc = std::make_unique< galapagos::done_clean> (this->dc->done_struct.done, this->dc->done_struct.mutex, this->logger); 
     write_dc = std::make_unique< galapagos::done_clean> (this->dc->done_struct.done, this->dc->done_struct.mutex, this->logger); 
+    #else
+    read_dc = std::make_unique< galapagos::done_clean> (this->dc->done_struct.done, this->dc->done_struct.mutex); 
+    write_dc = std::make_unique< galapagos::done_clean> (this->dc->done_struct.done, this->dc->done_struct.mutex); 
+    #endif
 
     t=std::make_unique<std::thread>(&galapagos::net::udp<T>::wait_for_end, this);
     t->detach();

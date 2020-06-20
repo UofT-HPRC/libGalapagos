@@ -502,8 +502,7 @@ char * galapagos::interface<T>::packet_read(size_t * _size, short * _dest, short
         }
     }
 
-    // size_t buff_size = curr_read_it->size - read_in_prog_addr + sizeof(T);
-    size_t buff_size = curr_read_it->size;
+    size_t buff_size = curr_read_it->size - read_in_prog_addr + sizeof(T);
     *_dest = curr_read_it->dest;
     *_id = curr_read_it->id;
     *_size = buff_size;
