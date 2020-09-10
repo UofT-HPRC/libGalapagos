@@ -19,8 +19,6 @@ void send_single_flit(short id, galapagos_interface * in, galapagos_interface *o
 void recv_single_flit(short id, galapagos_interface * in, galapagos_interface *out);
 void send_single_packet(short id, galapagos_interface * in, galapagos_interface *out);
 void recv_single_packet(short id, galapagos_interface * in, galapagos_interface *out);
-void kern_benchmark_0(short id, galapagos_interface * in, galapagos_interface *out);
-void kern_benchmark_1(short id, galapagos_interface * in, galapagos_interface *out);
 
 
 #endif

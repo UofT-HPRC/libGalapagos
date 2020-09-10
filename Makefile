@@ -36,6 +36,9 @@ test.exe: test.cpp *.hpp unit_tests/* common.cpp
 	mkdir -p recv
 	cp test.exe send/ && cp test.exe recv/
 
+reply: 
+	$(CXX) $(FLAGS) ${PRODUCTION_FLAGS} -o test_0.exe  benchmark_0.cpp common.cpp $(BOOST_LDFLAGS)
+	$(CXX) $(FLAGS) ${PRODUCTION_FLAGS} -o test_1.exe  benchmark_1.cpp common.cpp $(BOOST_LDFLAGS)
 
 clean:
 	rm -rf *.o

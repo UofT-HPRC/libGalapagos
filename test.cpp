@@ -26,7 +26,6 @@ std::chrono::time_point<std::chrono::high_resolution_clock> start, end;
 std::string my_address("10.0.0.1");
 std::string remote_address("10.0.0.2");
 typedef ap_uint<64> T;
-my_barrier barrier(2);
 
 #include "unit_tests/kernel.h"
 #include "unit_tests/interface_func.h"
@@ -42,17 +41,15 @@ my_barrier barrier(2);
 #include "unit_tests/node_perf.h"
 // #include "unit_tests/system_func.h"
 // #include "unit_tests/system_perf.h"
-#include "unit_tests/memory_perf.h"
 
 //************** INPUT GENERATION FUNCTIONS *************************//
 
- void generate_flit(int size, int id, int dest, galapagos_interface * out){
+void generate_flit(int iterations, int size, int id, int dest, galapagos_interface * out){
     galapagos_packet gp;
     gp.id = id;
     gp.dest = dest;
     gp.last = 0;
-    start = std::chrono::high_resolution_clock::now();
-    for(int j=0; j<NUM_ITERATIONS; j++){
+    for(int j=0; j<iterations; j++){
         for(int i=0; i<size; i++){
             ap_uint <32> lower = i;
             ap_uint <32> higher = 0xdeadbeef;
@@ -63,15 +60,14 @@ my_barrier barrier(2);
     }
 }
 
-void generate_packet(int size, int id, int dest, galapagos_interface * out){
+void generate_packet(int iterations, int size, int id, int dest, galapagos_interface * out){
     galapagos_packet gp;
     gp.id = id;
     gp.dest = dest;
     gp.last = 0;
    
     std::vector<ap_uint<64> > vec(size);
-    start = std::chrono::high_resolution_clock::now();
-    for(int j=0; j<NUM_ITERATIONS; j++){
+    for(int j=0; j<iterations; j++){
         for(int i=0; i<size; i++){
             ap_uint <32> lower = i;
             ap_uint <32> higher = 0xdeadbeef;
@@ -83,62 +79,51 @@ void generate_packet(int size, int id, int dest, galapagos_interface * out){
     }
 }
 
+void generate_packet(char* mem, int iterations, int size, int id, int dest, galapagos_interface * out){
+    for(int j=0; j<iterations; j++){
+	    out->packet_write(mem, size, dest, id);
+    }
+}
+
+void generate_packet(std::vector<ap_uint<64> >* vec, int iterations, int size, int id, int dest, galapagos_interface * out){
+    for(int j=0; j<iterations; j++){
+	    out->packet_write((char *)vec->data(), size, dest, id);
+    }
+}
+
 //************** OUTPUT PERFORMANCE FUNCTIONS *************************//
 
-void receive_flit_perf(int size, galapagos_interface * in){
+void receive_flit_perf(int iterations, int size, galapagos_interface * in){
     galapagos_packet gp;
-    for(int j=0; j<NUM_ITERATIONS; j++){
+    for(int j=0; j<iterations; j++){
         for(int i=0; i<size; i++){
             gp = in->read();
         }
     }
-    end = std::chrono::high_resolution_clock::now();
 }
 
-void receive_packet_perf(int size, galapagos_interface * in){
+void receive_packet_perf(int iterations, int size, galapagos_interface * in){
     galapagos_packet gp;
-    size_t packet_size = size;
+    size_t packet_size;
 	short dest;
 	short id;
    
-    for(int j=0; j<NUM_ITERATIONS; j++){
+    for(int j=0; j<iterations; j++){
         ap_uint<64> * ptr = (ap_uint<64> *)in->packet_read(&packet_size, &dest, &id);
+        free(ptr);
     }
-    end = std::chrono::high_resolution_clock::now();
 }
-
-void receive_packet_mem_perf(int size, galapagos_interface * in){
-    galapagos_packet gp;
-    size_t packet_size = size;
-	short dest;
-	short id;
-
-    char* mem = (char *)malloc(MAX_BUFFER*sizeof(gp.data));
-   
-    for(int j=0; j<NUM_ITERATIONS; j++){
-        gp = in->read();
-        gp = in->read();
-        in->packet_read(mem, &packet_size, &dest, &id);
-    }
-    end = std::chrono::high_resolution_clock::now();
-}
-
-void print_performance(std::string test_name, std::string test_type, int size){
-    std::chrono::duration<double> diff = end-start;
-    double throughput = ((size*NUM_ITERATIONS*sizeof(ap_uint<64>))/diff.count()/(1000*1000/8)); // Mb/s
-
-    std::cout << test_name << "," << test_type << "," << size << "," << throughput << std::endl;
-}
-
 
 //************** INPUT GENERATION KERNELS *************************//
 
 void kern_generate_flit(short id, galapagos_interface * in, galapagos_interface * out){
-    generate_flit(MAX_BUFFER, id, id+1, out);
+    start = std::chrono::high_resolution_clock::now();
+    generate_flit(NUM_ITERATIONS, MAX_BUFFER, id, id+1, out);
 }
 
 void kern_generate_packet(short id, galapagos_interface * in, galapagos_interface * out){
-    generate_packet(MAX_BUFFER, id, id+1, out);
+    start = std::chrono::high_resolution_clock::now();
+    generate_packet(NUM_ITERATIONS, MAX_BUFFER, id, id+1, out);
 }
 
 
@@ -180,158 +165,13 @@ void kern_output_packet_verify(short id, galapagos_interface * in, galapagos_int
 //************** OUTPUT PERFORMANCE KERNELS *************************//
 
 void kern_output_flit_perf(short id, galapagos_interface * in, galapagos_interface *out){
-    receive_flit_perf(MAX_BUFFER, in);
+    receive_flit_perf(NUM_ITERATIONS, MAX_BUFFER, in);
+    end = std::chrono::high_resolution_clock::now();
 }
 
 void kern_output_packet_perf(short id, galapagos_interface * in, galapagos_interface *out){
-    receive_packet_perf(MAX_BUFFER, in);
-}
-
-//************** BENCHMARK KERNELS *************************//
-
-int msg_size[] = {64, 128, 256, 512, MAX_BUFFER}; // should have 5 elements currently
-
-void kern_benchmark_0(short id, galapagos_interface * in, galapagos_interface * out){
-
-    generate_flit(msg_size[0], id, id+1, out);
-    barrier.wait();
-    receive_flit_perf(msg_size[1], in);
-    print_performance("flit-flit", "perf", msg_size[1]);
-    barrier.wait();
-    generate_flit(msg_size[2], id, id+1, out);
-    barrier.wait();
-    receive_flit_perf(msg_size[3], in);
-    print_performance("flit-flit", "perf", msg_size[3]);
-    barrier.wait();
-    generate_flit(msg_size[4], id, id+1, out);
-    barrier.wait();
-
-    // generate_packet(msg_size[0], id, id+1, out);
-    // barrier.wait();
-    // receive_flit_perf(msg_size[1], in);
-    // print_performance("packet-flit", "perf", msg_size[1]);
-    // barrier.wait();
-    // generate_packet(msg_size[2], id, id+1, out);
-    // barrier.wait();
-    // receive_flit_perf(msg_size[3], in);
-    // print_performance("packet-flit", "perf", msg_size[3]);
-    // barrier.wait();
-    // generate_packet(msg_size[4], id, id+1, out);
-    // barrier.wait();
-
-    // generate_flit(msg_size[0], id, id+1, out);
-    // barrier.wait();
-    // receive_packet_perf(msg_size[1], in);
-    // print_performance("flit-packet", "perf", msg_size[1]);
-    // barrier.wait();
-    // generate_flit(msg_size[2], id, id+1, out);
-    // barrier.wait();
-    // receive_packet_perf(msg_size[3], in);
-    // print_performance("flit-packet", "perf", msg_size[3]);
-    // barrier.wait();
-    // generate_flit(msg_size[4], id, id+1, out);
-    // barrier.wait();
-
-    generate_packet(msg_size[0], id, id+1, out);
-    barrier.wait();
-    receive_packet_perf(msg_size[1], in);
-    print_performance("packet-packet", "perf", msg_size[1]);
-    barrier.wait();
-    generate_packet(msg_size[2], id, id+1, out);
-    barrier.wait();
-    receive_packet_perf(msg_size[3], in);
-    print_performance("packet-packet", "perf", msg_size[3]);
-    barrier.wait();
-    generate_packet(msg_size[4], id, id+1, out);
-    barrier.wait();
-
-    generate_packet(msg_size[0], id, id+1, out);
-    barrier.wait();
-    receive_packet_mem_perf(msg_size[1], in);
-    print_performance("packet-packet_mem", "perf", msg_size[1]);
-    barrier.wait();
-    generate_packet(msg_size[2], id, id+1, out);
-    barrier.wait();
-    receive_packet_mem_perf(msg_size[3], in);
-    print_performance("packet-packet_mem", "perf", msg_size[3]);
-    barrier.wait();
-    generate_packet(msg_size[4], id, id+1, out);
-    barrier.wait();
-    
-}
-
-void kern_benchmark_1(short id, galapagos_interface * in, galapagos_interface *out){
-    
-    receive_flit_perf(msg_size[0], in);
-    print_performance("flit-flit", "perf", msg_size[0]);
-    barrier.wait();
-    generate_flit(msg_size[1], id, id-1, out);
-    barrier.wait();
-    receive_flit_perf(msg_size[2], in);
-    print_performance("flit-flit", "perf", msg_size[2]);
-    barrier.wait();
-    generate_flit(msg_size[3], id, id-1, out);
-    barrier.wait();
-    receive_flit_perf(msg_size[4], in);
-    print_performance("flit-flit", "perf", msg_size[4]);
-    barrier.wait();
-
-    // receive_flit_perf(msg_size[0], in);
-    // print_performance("packet-flit", "perf", msg_size[0]);
-    // barrier.wait();
-    // generate_packet(msg_size[1], id, id-1, out);
-    // barrier.wait();
-    // receive_flit_perf(msg_size[2], in);
-    // print_performance("packet-flit", "perf", msg_size[2]);
-    // barrier.wait();
-    // generate_packet(msg_size[3], id, id-1, out);
-    // barrier.wait();
-    // receive_flit_perf(msg_size[4], in);
-    // print_performance("packet-flit", "perf", msg_size[4]);
-    // barrier.wait();
-
-    // receive_packet_perf(msg_size[0], in);
-    // print_performance("flit-packet", "perf", msg_size[0]);
-    // barrier.wait();
-    // generate_flit(msg_size[1], id, id-1, out);
-    // barrier.wait();
-    // receive_packet_perf(msg_size[2], in);
-    // print_performance("flit-packet", "perf", msg_size[2]);
-    // barrier.wait();
-    // generate_flit(msg_size[3], id, id-1, out);
-    // barrier.wait();
-    // receive_packet_perf(msg_size[4], in);
-    // print_performance("flit-packet", "perf", msg_size[4]);
-    // barrier.wait();
-
-    receive_packet_perf(msg_size[0], in);
-    print_performance("packet-packet", "perf", msg_size[0]);
-    barrier.wait();
-    generate_packet(msg_size[1], id, id-1, out);
-    barrier.wait();
-    receive_packet_perf(msg_size[2], in);
-    print_performance("packet-packet", "perf", msg_size[2]);
-    barrier.wait();
-    generate_packet(msg_size[3], id, id-1, out);
-    barrier.wait();
-    receive_packet_perf(msg_size[4], in);
-    print_performance("packet-packet", "perf", msg_size[4]);
-    barrier.wait();
-
-    receive_packet_mem_perf(msg_size[0], in);
-    print_performance("packet-packet_mem", "perf", msg_size[0]);
-    barrier.wait();
-    generate_packet(msg_size[1], id, id-1, out);
-    barrier.wait();
-    receive_packet_mem_perf(msg_size[2], in);
-    print_performance("packet-packet_mem", "perf", msg_size[2]);
-    barrier.wait();
-    generate_packet(msg_size[3], id, id-1, out);
-    barrier.wait();
-    receive_packet_mem_perf(msg_size[4], in);
-    print_performance("packet-packet_mem", "perf", msg_size[4]);
-    barrier.wait();
-    
+    receive_packet_perf(NUM_ITERATIONS, MAX_BUFFER, in);
+    end = std::chrono::high_resolution_clock::now();
 }
 
 void axis_fifo(galapagos_interface * s_axis, galapagos_interface * m_axis, int count){

@@ -288,7 +288,7 @@ void tcp_session<T>::do_read()
 
                 num_read=0;
 #if LOG_LEVEL > 0
-                logger->debug ("do_read, size is {0:d}, max_size is {1:d}", size, (MAX_BUFFER+1));
+                logger->debug ("do_read, size is {0:d}, max_size is {1:d}, avail is {2:d}", size, (MAX_BUFFER+1), avail);
                 logger->flush();
 #endif
                 assert(size <= (MAX_BUFFER + 1));
