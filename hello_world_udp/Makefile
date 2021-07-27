@@ -17,7 +17,7 @@ debug: hello_world.exe
 
 all: debug 
 
-hello_world.exe: cpu_node.cpp kern.cpp ../common.cpp
+hello_world.exe: cpu_node.cpp kern.cpp ../common.cpp ../util/CommandLine.cpp
 	g++ $(CXXFLAGS) $^ -o $@ $(BOOST_LDFLAGS)	
 
 clean:
