@@ -16,7 +16,10 @@ sudo ./b2 install
 # Running Example
 1. Go to hello_world_udp
 2. `make cpu`
-3. Run `./hello_world --send_address <ip address to run kern send> --node_address <ip address of this kernel> --loopback_address <ip address that loopback kernel is on>`
+3. Run 
+```
+./hello_world --send_address <ip address to run kern send> --node_address <ip address of this kernel> --loopback_address <ip address that loopback kernel is on>
+```
 They can be the same IP address, if thats the case both kernels would run on the same CPU.
 4. Kernels described in kerns.cpp
 
