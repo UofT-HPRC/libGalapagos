@@ -1,4 +1,5 @@
 
+#define INTERFACE_100G
 #include <string>
 #include <math.h>
 #include <thread>
